@@ -18,6 +18,14 @@ if link:
         with st.spinner("Bulut sunucusu videoyu analiz ediyor..."):
             bilgi = analiz_et(link)
             
+            # --- YENİ: MB HESAPLAMA EKRANI ---
+            boyut_bayt = bilgi.get('filesize') or bilgi.get('filesize_approx')
+            if boyut_bayt:
+                boyut_mb = boyut_bayt / (1024 * 1024)
+                st.info(f"📦 **Tahmini Dosya Boyutu:** {boyut_mb:.2f} MB")
+            else:
+                st.info("📦 **Tahmini Dosya Boyutu:** YouTube bu veriyi gizlemiş.")
+            
         secim = st.radio("Gerçek Kalite Seçenekleri:", ["HD (720p)", "Full HD (1080p)"])
     
         # AŞAMA 1: SUNUCUYA İNDİRME BUTONU
@@ -52,6 +60,12 @@ if link:
                     file_name=dosya_adi,
                     mime="video/mp4"
                 )
+                
+            # --- YENİ: SUNUCU HAFIZASINI TEMİZLEME ---
+            try:
+                os.remove(gecici_yol)
+            except:
+                pass
 
     except Exception as e:
         st.error(f"Sistemde bir aksama oldu: {e}")

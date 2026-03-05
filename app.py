@@ -2,83 +2,83 @@ import streamlit as st
 import yt_dlp
 import os
 
-st.set_page_config(page_title="Tepe Video Turbo", page_icon="☁️")
+st.set_page_config(page_title="Tepe Video Turbo | Bulut", page_icon="☁️")
+st.title("☁️ Tepe Video Turbo (Bulut Sürümü)")
+st.markdown("*(Herhangi bir cihazdan, kurulumsuz indirme merkezi)*")
 
-st.title("☁️ Tepe Video Turbo")
-st.write("Bulut Video İndirici")
+link = st.text_input("YouTube Video Linkini Yapıştırın:")
 
-url = st.text_input("YouTube video linki yapıştır:")
-
-YDL_OPTS = {
-    "quiet": True,
-    "noplaylist": True,
-    "geo_bypass": True,
-    "nocheckcertificate": True,
-    "http_headers": {
-        "User-Agent": "Mozilla/5.0"
-    }
+# --- NİHAİ KAMUFLAJ VE ÇEREZ (COOKIE) SİSTEMİ ---
+ortak_ayarlar = {
+    'cookiefile': 'cookies.txt',  # EHLİYET BURADAN OKUNACAK!
+    'extractor_args': {'youtube': ['player_client=default,-android_sdkless']},
+    'http_headers': {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'}
 }
 
-if url:
-
+if link:
     try:
+        @st.cache_data(ttl=600)
+        def analiz_et(url):
+            analiz_ayarlari = {'quiet': True, 'no_warnings': True, 'noplaylist': True}
+            analiz_ayarlari.update(ortak_ayarlar) 
+            with yt_dlp.YoutubeDL(analiz_ayarlari) as ydl:
+                return ydl.extract_info(url, download=False)
 
-        with st.spinner("Video analiz ediliyor..."):
-
-            opts = YDL_OPTS.copy()
-            opts["skip_download"] = True
-
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-
-        title = info.get("title", "video")
-        thumbnail = info.get("thumbnail")
-
-        st.image(thumbnail)
-        st.subheader(title)
-
-        kalite = st.radio(
-            "Kalite seç",
-            ["HD (720p)", "Full HD (1080p)"]
-        )
-
-        if st.button("🚀 Videoyu Hazırla"):
-
-            if "1080" in kalite:
-                format_code = "bestvideo[height<=1080]+bestaudio/best"
+        with st.spinner("Bulut sunucusu videoyu analiz ediyor..."):
+            bilgi = analiz_et(link)
+            
+            # --- MB GÖSTERİM KISMI ---
+            boyut_bayt = bilgi.get('filesize') or bilgi.get('filesize_approx')
+            if boyut_bayt:
+                boyut_mb = boyut_bayt / (1024 * 1024)
+                st.info(f"📦 **Tahmini Dosya Boyutu:** {boyut_mb:.2f} MB")
             else:
-                format_code = "bestvideo[height<=720]+bestaudio/best"
+                st.info("📦 **Tahmini Dosya Boyutu:** YouTube bu veriyi gizlemiş.")
+            
+        secim = st.radio("Gerçek Kalite Seçenekleri:", ["HD (720p)", "Full HD (1080p)"])
+    
+        # AŞAMA 1: SUNUCUYA İNDİRME BUTONU
+        if st.button("🚀 BULUTTA HAZIRLA"):
+            
+            if "1080p" in secim:
+                f_id = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            else:
+                f_id = "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best"
 
-            output = "video.%(ext)s"
+            dosya_adi = f"{bilgi.get('title', 'Video')}.mp4"
+            gecici_yol = "gecici_video.mp4"
 
-            opts = YDL_OPTS.copy()
-
-            opts.update({
-                "format": format_code,
-                "merge_output_format": "mp4",
-                "outtmpl": output
-            })
-
-            with st.spinner("Video indiriliyor..."):
-
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    ydl.download([url])
-
-            file = os.listdir(".")[0]
-
-            with open(file, "rb") as f:
-
+            ayarlar = {
+                'format': f_id,
+                'outtmpl': gecici_yol, 
+                'merge_output_format': 'mp4',
+                'noplaylist': True 
+            }
+            ayarlar.update(ortak_ayarlar) # İndirme aşamasında da ehliyeti gösteriyoruz!
+            
+            with st.status("Bulut motorları işliyor (Sunucuya Çekiliyor)...", expanded=True) as s:
+                with yt_dlp.YoutubeDL(ayarlar) as ydl:
+                    ydl.download([link])
+                s.update(label="Bulutta Hazır! ✅", state="complete")
+            
+            # AŞAMA 2: CİHAZA İNDİRME BUTONU
+            with open(gecici_yol, "rb") as file:
+                st.success("Tebrikler! Video sunucuda hazırlandı. Cihazınıza kaydetmek için tıklayın:")
                 st.download_button(
-                    "📥 Cihaza indir",
-                    f,
-                    file_name=file
+                    label="📥 CİHAZIMA İNDİR",
+                    data=file,
+                    file_name=dosya_adi,
+                    mime="video/mp4"
                 )
-
-            os.remove(file)
+                
+            # --- SUNUCU HAFIZASINI TEMİZLEME ---
+            try:
+                os.remove(gecici_yol)
+            except:
+                pass
 
     except Exception as e:
-
-        st.error(f"Hata oluştu: {e}")
+        st.error(f"Sistemde bir aksama oldu: {e}")
 
 st.divider()
-st.caption("Tepe Video Turbo | Cloud Edition")
+st.caption("Tepe Video Turbo v9.2 | Advanced Cookie Authentication")

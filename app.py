@@ -1,91 +1,112 @@
-import streamlit as st
+from flask import Flask, request, send_file, render_template_string
 import yt_dlp
 import os
-import glob
 
-st.set_page_config(page_title="Tepe Video Turbo | Bulut", page_icon="☁️")
-st.title("☁️ Tepe Video Turbo (Bulut Sürümü)")
-st.markdown("*(Herhangi bir cihazdan, kurulumsuz indirme merkezi)*")
+app = Flask(__name__)
 
-link = st.text_input("YouTube Video Linkini Yapıştırın:")
-
-ortak_ayarlar = {
-    'cookiefile': 'cookies.txt',  
-    'extractor_args': {'youtube': ['player_client=default,-android_sdkless']},
-    'http_headers': {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'}
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tepe Video Bulut</title>
+<style>
+body{
+background:#0f172a;
+color:white;
+font-family:Arial;
+text-align:center;
+padding:40px;
 }
+input{
+padding:10px;
+width:60%;
+margin:10px;
+}
+button{
+padding:10px 20px;
+margin:10px;
+cursor:pointer;
+}
+.card{
+background:#1e293b;
+padding:30px;
+border-radius:10px;
+display:inline-block;
+}
+</style>
+</head>
+<body>
 
-if link:
-    try:
-        @st.cache_data(ttl=600)
-        def analiz_et(url):
-            analiz_ayarlari = {'quiet': True, 'no_warnings': True, 'noplaylist': True}
-            analiz_ayarlari.update(ortak_ayarlar) 
-            with yt_dlp.YoutubeDL(analiz_ayarlari) as ydl:
-                return ydl.extract_info(url, download=False)
+<div class="card">
+<h2>Tepe Video Bulut</h2>
 
-        with st.spinner("Bulut sunucusu videoyu analiz ediyor..."):
-            bilgi = analiz_et(link)
-            
-            boyut_bayt = bilgi.get('filesize') or bilgi.get('filesize_approx')
-            if boyut_bayt:
-                boyut_mb = boyut_bayt / (1024 * 1024)
-                st.info(f"📦 **Tahmini Dosya Boyutu:** {boyut_mb:.2f} MB")
-            else:
-                st.info("📦 **Tahmini Dosya Boyutu:** YouTube bu veriyi gizlemiş.")
-            
-        secim = st.radio("Gerçek Kalite Seçenekleri:", ["HD (720p)", "Full HD (1080p)"])
-    
-        if st.button("🚀 BULUTTA HAZIRLA"):
-            
-            # --- YENİ: ZEKİ FORMAT SEÇİCİ (Uzantı Dayatması Yok) ---
-            if "1080p" in secim:
-                f_id = "bestvideo[height<=1080]+bestaudio/best"
-            else:
-                f_id = "bestvideo[height<=720]+bestaudio/best"
+<form method="post">
+<input name="url" placeholder="Video URL"><br>
 
-            # %(ext)s komutu ile orijinal uzantıyı koruyoruz
-            ayarlar = {
-                'format': f_id, 
-                'outtmpl': 'gecici_video.%(ext)s', 
-                'noplaylist': True 
-            }
-            ayarlar.update(ortak_ayarlar) 
-            
-            with st.status("Bulut motorları işliyor (Sunucuya Çekiliyor)...", expanded=True) as s:
-                with yt_dlp.YoutubeDL(ayarlar) as ydl:
-                    ydl.download([link])
-                s.update(label="Bulutta Hazır! ✅", state="complete")
-            
-            # --- YENİ: İNEN DOSYAYI DİNAMİK OLARAK BULMA ---
-            # Sunucuya inen dosya .mp4 mü .webm mi onu tespit ediyoruz
-            inen_dosyalar = glob.glob("gecici_video.*")
-            
-            if inen_dosyalar:
-                gercek_yol = inen_dosyalar[0]
-                uzanti = gercek_yol.split('.')[-1] # Uzantıyı kelime olarak alıyoruz (mp4, webm vb.)
-                
-                dosya_adi = f"{bilgi.get('title', 'Video')}.{uzanti}"
-                mime_turu = f"video/{uzanti}"
+<button name="type" value="video">MP4 indir</button>
+<button name="type" value="mp3">MP3 indir</button>
 
-                with open(gercek_yol, "rb") as file:
-                    st.success(f"Tebrikler! Video ({uzanti.upper()} formatında) sunucuda hazırlandı:")
-                    st.download_button(
-                        label="📥 CİHAZIMA İNDİR",
-                        data=file,
-                        file_name=dosya_adi,
-                        mime=mime_turu
-                    )
-                
-                try:
-                    os.remove(gercek_yol)
-                except:
-                    pass
-            else:
-                st.error("Dosya sunucuda bulunamadı.")
+</form>
 
-    except Exception as e:
-        st.error(f"Sistemde bir aksama oldu: {e}")
+{% if title %}
+<h3>{{title}}</h3>
+<p>Boyut: {{size}} MB</p>
+<a href="/download">İndir</a>
+{% endif %}
 
-st.divider()
-st.caption("Tepe Video Turbo v9.5 | Dynamic Format Resolution")
+</div>
+
+</body>
+</html>
+"""
+
+video_file = None
+
+@app.route("/", methods=["GET","POST"])
+def index():
+    global video_file
+
+    if request.method == "POST":
+
+        url = request.form["url"]
+        type = request.form["type"]
+
+        ydl_opts = {
+            "outtmpl": "video.%(ext)s",
+            "cookiefile": "cookie.txt",
+        }
+
+        if type == "mp3":
+            ydl_opts["format"] = "bestaudio"
+            ydl_opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+            }]
+        else:
+            ydl_opts["format"] = "best"
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+
+            if type == "mp3":
+                filename = filename.rsplit(".",1)[0] + ".mp3"
+
+        video_file = filename
+
+        size = round(os.path.getsize(filename) / (1024*1024),2)
+
+        return render_template_string(
+            HTML,
+            title=info["title"],
+            size=size
+        )
+
+    return render_template_string(HTML)
+
+@app.route("/download")
+def download():
+    global video_file
+    return send_file(video_file, as_attachment=True)
+
+app.run(host="0.0.0.0", port=10000)

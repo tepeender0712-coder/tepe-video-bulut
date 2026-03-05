@@ -37,20 +37,20 @@ if link:
     
         if st.button("🚀 BULUTTA HAZIRLA"):
             
-            # --- YENİ: ESNEK FORMAT SEÇİMİ (ÇÖKMEYİ ÖNLER) ---
+            # --- YENİ: ASLA ÇÖKMEYEN TANK FORMATI ---
             if "1080p" in secim:
-                f_id = "bestvideo[height<=1080]+bestaudio/best"
+                f_id = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best"
             else:
-                f_id = "bestvideo[height<=720]+bestaudio/best"
+                f_id = "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best"
 
             dosya_adi = f"{bilgi.get('title', 'Video')}.mp4"
             gecici_yol = "gecici_video.mp4"
 
             ayarlar = {
-                'format': f_id, # Esnek formatı kullanıyoruz
+                'format': f_id, 
                 'outtmpl': gecici_yol, 
-                'merge_output_format': 'mp4', # Ne bulursan bul, bize MP4 olarak birleştir diyoruz!
                 'noplaylist': True 
+                # merge_output_format komutunu sildik, artık zorla birleştirme yok!
             }
             ayarlar.update(ortak_ayarlar) 
             
@@ -77,4 +77,4 @@ if link:
         st.error(f"Sistemde bir aksama oldu: {e}")
 
 st.divider()
-st.caption("Tepe Video Turbo v9.3 | Ultimate Format Fallback")
+st.caption("Tepe Video Turbo v9.4 | The Unbreakable Tank")

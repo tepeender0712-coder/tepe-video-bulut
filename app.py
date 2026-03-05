@@ -1,6 +1,7 @@
 import streamlit as st
 import yt_dlp
 import os
+import glob
 
 st.set_page_config(page_title="Tepe Video Turbo | Bulut", page_icon="☁️")
 st.title("☁️ Tepe Video Turbo (Bulut Sürümü)")
@@ -37,20 +38,17 @@ if link:
     
         if st.button("🚀 BULUTTA HAZIRLA"):
             
-            # --- YENİ: ASLA ÇÖKMEYEN TANK FORMATI ---
+            # --- YENİ: ZEKİ FORMAT SEÇİCİ (Uzantı Dayatması Yok) ---
             if "1080p" in secim:
-                f_id = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best"
+                f_id = "bestvideo[height<=1080]+bestaudio/best"
             else:
-                f_id = "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best"
+                f_id = "bestvideo[height<=720]+bestaudio/best"
 
-            dosya_adi = f"{bilgi.get('title', 'Video')}.mp4"
-            gecici_yol = "gecici_video.mp4"
-
+            # %(ext)s komutu ile orijinal uzantıyı koruyoruz
             ayarlar = {
                 'format': f_id, 
-                'outtmpl': gecici_yol, 
+                'outtmpl': 'gecici_video.%(ext)s', 
                 'noplaylist': True 
-                # merge_output_format komutunu sildik, artık zorla birleştirme yok!
             }
             ayarlar.update(ortak_ayarlar) 
             
@@ -59,22 +57,35 @@ if link:
                     ydl.download([link])
                 s.update(label="Bulutta Hazır! ✅", state="complete")
             
-            with open(gecici_yol, "rb") as file:
-                st.success("Tebrikler! Video sunucuda hazırlandı. Cihazınıza kaydetmek için tıklayın:")
-                st.download_button(
-                    label="📥 CİHAZIMA İNDİR",
-                    data=file,
-                    file_name=dosya_adi,
-                    mime="video/mp4"
-                )
+            # --- YENİ: İNEN DOSYAYI DİNAMİK OLARAK BULMA ---
+            # Sunucuya inen dosya .mp4 mü .webm mi onu tespit ediyoruz
+            inen_dosyalar = glob.glob("gecici_video.*")
+            
+            if inen_dosyalar:
+                gercek_yol = inen_dosyalar[0]
+                uzanti = gercek_yol.split('.')[-1] # Uzantıyı kelime olarak alıyoruz (mp4, webm vb.)
                 
-            try:
-                os.remove(gecici_yol)
-            except:
-                pass
+                dosya_adi = f"{bilgi.get('title', 'Video')}.{uzanti}"
+                mime_turu = f"video/{uzanti}"
+
+                with open(gercek_yol, "rb") as file:
+                    st.success(f"Tebrikler! Video ({uzanti.upper()} formatında) sunucuda hazırlandı:")
+                    st.download_button(
+                        label="📥 CİHAZIMA İNDİR",
+                        data=file,
+                        file_name=dosya_adi,
+                        mime=mime_turu
+                    )
+                
+                try:
+                    os.remove(gercek_yol)
+                except:
+                    pass
+            else:
+                st.error("Dosya sunucuda bulunamadı.")
 
     except Exception as e:
         st.error(f"Sistemde bir aksama oldu: {e}")
 
 st.divider()
-st.caption("Tepe Video Turbo v9.4 | The Unbreakable Tank")
+st.caption("Tepe Video Turbo v9.5 | Dynamic Format Resolution")

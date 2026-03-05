@@ -8,9 +8,8 @@ st.markdown("*(Herhangi bir cihazdan, kurulumsuz indirme merkezi)*")
 
 link = st.text_input("YouTube Video Linkini Yapıştırın:")
 
-# --- NİHAİ KAMUFLAJ VE ÇEREZ (COOKIE) SİSTEMİ ---
 ortak_ayarlar = {
-    'cookiefile': 'cookies.txt',  # EHLİYET BURADAN OKUNACAK!
+    'cookiefile': 'cookies.txt',  
     'extractor_args': {'youtube': ['player_client=default,-android_sdkless']},
     'http_headers': {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'}
 }
@@ -27,7 +26,6 @@ if link:
         with st.spinner("Bulut sunucusu videoyu analiz ediyor..."):
             bilgi = analiz_et(link)
             
-            # --- MB GÖSTERİM KISMI ---
             boyut_bayt = bilgi.get('filesize') or bilgi.get('filesize_approx')
             if boyut_bayt:
                 boyut_mb = boyut_bayt / (1024 * 1024)
@@ -37,31 +35,30 @@ if link:
             
         secim = st.radio("Gerçek Kalite Seçenekleri:", ["HD (720p)", "Full HD (1080p)"])
     
-        # AŞAMA 1: SUNUCUYA İNDİRME BUTONU
         if st.button("🚀 BULUTTA HAZIRLA"):
             
+            # --- YENİ: ESNEK FORMAT SEÇİMİ (ÇÖKMEYİ ÖNLER) ---
             if "1080p" in secim:
-                f_id = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                f_id = "bestvideo[height<=1080]+bestaudio/best"
             else:
-                f_id = "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+                f_id = "bestvideo[height<=720]+bestaudio/best"
 
             dosya_adi = f"{bilgi.get('title', 'Video')}.mp4"
             gecici_yol = "gecici_video.mp4"
 
             ayarlar = {
-                'format': f_id,
+                'format': f_id, # Esnek formatı kullanıyoruz
                 'outtmpl': gecici_yol, 
-                'merge_output_format': 'mp4',
+                'merge_output_format': 'mp4', # Ne bulursan bul, bize MP4 olarak birleştir diyoruz!
                 'noplaylist': True 
             }
-            ayarlar.update(ortak_ayarlar) # İndirme aşamasında da ehliyeti gösteriyoruz!
+            ayarlar.update(ortak_ayarlar) 
             
             with st.status("Bulut motorları işliyor (Sunucuya Çekiliyor)...", expanded=True) as s:
                 with yt_dlp.YoutubeDL(ayarlar) as ydl:
                     ydl.download([link])
                 s.update(label="Bulutta Hazır! ✅", state="complete")
             
-            # AŞAMA 2: CİHAZA İNDİRME BUTONU
             with open(gecici_yol, "rb") as file:
                 st.success("Tebrikler! Video sunucuda hazırlandı. Cihazınıza kaydetmek için tıklayın:")
                 st.download_button(
@@ -71,7 +68,6 @@ if link:
                     mime="video/mp4"
                 )
                 
-            # --- SUNUCU HAFIZASINI TEMİZLEME ---
             try:
                 os.remove(gecici_yol)
             except:
@@ -81,4 +77,4 @@ if link:
         st.error(f"Sistemde bir aksama oldu: {e}")
 
 st.divider()
-st.caption("Tepe Video Turbo v9.2 | Advanced Cookie Authentication")
+st.caption("Tepe Video Turbo v9.3 | Ultimate Format Fallback")
